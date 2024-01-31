@@ -1,5 +1,7 @@
 using Categoryservice.Data;
 using Categoryservice.Extension;
+using Categoryservice.Service;
+using Categoryservice.Service.IService;
 using Microsoft.EntityFrameworkCore;
 
 
@@ -21,6 +23,8 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
 
 builder.Services.AddAutoMapper(AppDomain.CurrentDomain.GetAssemblies());
 
+builder.Services.AddScoped<ICategory, CategoryService>();
+
 
 var app = builder.Build();
 
@@ -35,7 +39,7 @@ app.UseHttpsRedirection();
 app.UseMigrations();
 app.UseAuthentication();
 
-app.UseAuthorization();
+//app.UseAuthorization();
 
 app.MapControllers();
 

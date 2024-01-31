@@ -140,3 +140,4 @@ C:\Users\Gordon\Desktop\Artify\Artify-MicroServices\CategoryService\obj\Debug\ne
 C:\Users\Gordon\Desktop\Artify\Artify-MicroServices\CategoryService\obj\Debug\net8.0\CategoryService.pdb
 C:\Users\Gordon\Desktop\Artify\Artify-MicroServices\CategoryService\obj\Debug\net8.0\CategoryService.genruntimeconfig.cache
 C:\Users\Gordon\Desktop\Artify\Artify-MicroServices\CategoryService\obj\Debug\net8.0\ref\CategoryService.dll
+C:\Users\Gordon\Desktop\Artify\Artify-MicroServices\CategoryService\obj\Debug\net8.0\CategoryService.sourcelink.json
