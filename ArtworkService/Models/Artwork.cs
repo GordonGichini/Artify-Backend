@@ -10,6 +10,7 @@
         public DateTime StartTime { get; set; } = DateTime.Now;
         public DateTime StopTime { get; set; }
         public int StartingPrice { get; set; }
+        public int HighestBid { get; set; }
         public string Category { get; set; } = string.Empty;
         public string Status { get; set; } = "Open";
     }
