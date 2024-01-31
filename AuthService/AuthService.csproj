@@ -24,10 +24,7 @@
 
   <ItemGroup>
     <Folder Include="Controllers\" />
-    <Folder Include="Extensions\" />
-    <Folder Include="Profiles\" />
     <Folder Include="Services\" />
-    <Folder Include="Utilities\" />
   </ItemGroup>
 
 </Project>
