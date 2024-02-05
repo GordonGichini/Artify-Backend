@@ -1,36 +1,35 @@
 ﻿using Azure.Messaging.ServiceBus;
+using MailService.Models;
 using MailService.Models.Dtos;
-using MailService.Service;
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.Logging;
+using MailService.Services;
 using Newtonsoft.Json;
-using System;
 using System.Text;
-using System.Threading.Tasks;
+using System.Globalization;
 
 namespace MailService.Messaging
 {
     public class AzureServiceBusConsumer : IAzureServiceBusConsumer
     {
         private readonly IConfiguration _configuration;
-        private readonly ILogger<AzureServiceBusConsumer> _logger;
+        private readonly string _connectionString;
+        private readonly string _queueName;
         private readonly ServiceBusProcessor _emailProcessor;
         private readonly ServiceBusProcessor _orderProcessor;
-        private readonly IMailService _mailService;
+        private readonly MailsService _emailService;
+        private readonly EmailService _email;
 
-        public AzureServiceBusConsumer(IConfiguration configuration, ILogger<AzureServiceBusConsumer> logger, IMailService mailService)
+        public AzureServiceBusConsumer(IConfiguration configuration, EmailService service)
         {
             _configuration = configuration;
-            _logger = logger;
-            _mailService = mailService;
-
-             string connectionString = _configuration.GetConnectionString("AzureServices:connectionString");
-            string queueName = _configuration.GetValue<string>("AzureServices:qName");
+            _email = service;
+            _connectionString = _configuration.GetConnectionString("AzureServices:connectionString");
+            _queueName = _configuration.GetValue<string>("AzureServices:qName");
 
 
-            var client = new ServiceBusClient(connectionString);
-            _emailProcessor = client.CreateProcessor(queueName);
+            var client = new ServiceBusClient(_connectionString);
+            _emailProcessor = client.CreateProcessor(_queueName);
             _orderProcessor = client.CreateProcessor("orderplaced");
+            _emailService = new MailsService(configuration);
         }
 
         public async Task Start()
@@ -53,111 +52,100 @@ namespace MailService.Messaging
             await _orderProcessor.DisposeAsync();
         }
 
-        private async Task OnOrder(ProcessMessageEventArgs args)
+         private async Task OnOrder(ProcessMessageEventArgs arg)
         {
+
+            var message = arg.Message;
+            var body = Encoding.UTF8.GetString(message.Body);//read  as String
+            var users = JsonConvert.DeserializeObject<UserMessageDto>(body);//string to UserMessageDto
+
             try
             {
-                var message = args.Message;
-                var body = Encoding.UTF8.GetString(message.Body);
-                var user = JsonConvert.DeserializeObject<UserMessageDto>(body);
 
-                StringBuilder emailContent = new StringBuilder();
-                emailContent.Append("<img src=\"https://cdn.pixabay.com/photo/2017/11/08/22/48/gallery-2931925_1280.jpg\" width=\"1000\" height=\"600\">");
-                emailContent.Append($"<h1> Hello {user.Name}</h1>");
-                emailContent.AppendLine("<br/> Your order was placed successfully.");
-                emailContent.AppendLine("<p>You can make another order!!</p>");
+                StringBuilder stringBuilder = new StringBuilder();
+                stringBuilder.Append("<img src=\"https://cdn.pixabay.com/photo/2017/11/08/22/48/gallery-2931925_1280.jpg\" width=\"1000\" height=\"600\">");
+                stringBuilder.Append("<h1> Hello " + users.Name + "</h1>");
+                stringBuilder.AppendLine("<br/> Your Order was placed Successfully ");
 
-                var emailDto = new UserMessageDto
+                stringBuilder.Append("<br/>");
+                stringBuilder.Append('\n');
+                stringBuilder.Append("<p>You can Make another order!!</p>");
+
+                var user = new UserMessageDto()
                 {
-                    Email = user.Email,
-                    Name = user.Name,
-                    Message = emailContent.ToString()
+                    Email = users.Email,
+                    Name = users.Name,
                 };
-                await _mailService.SendEmail(emailDto);
+                await _emailService.sendEmail(user, stringBuilder.ToString());
 
-                // Log successful message processing
-                _logger.LogInformation("Order confirmation email sent to {Email}", user.Email);
 
-                // Mark the message as completed to remove it from the queue
-                await args.CompleteMessageAsync(message);
+                //insert  to Database
+                var emaiLLogger = new EmailLogger()
+                {
+                    Name = user.Name,
+                    Email = user.Email,
+                    Message = stringBuilder.ToString(),
+                    DateTime = DateTime.Now,
+
+                };
+                await _email.addDatatoDatabase(emaiLLogger);
+
+                await arg.CompleteMessageAsync(arg.Message);//we are done delete the message from the queue 
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error processing order message: {ErrorMessage}", ex.Message);
-
-                // Send an email notification to admin
-                var adminNotification = new UserMessageDto
-                {
-                    Name = "Admin",
-                    Email = "admin@example.com",
-                    Message = $"Error processing order message: {ex.Message}"
-                };
-                await _mailService.SendEmail(adminNotification);
-
-                // Mark the message as completed to remove it from the queue
-                await args.CompleteMessageAsync(args.Message);
+                throw;
+                //send an Email to Admin
             }
         }
 
-        private async Task OnRegisterUser(ProcessMessageEventArgs args)
+        private Task ErrorHandler(ProcessErrorEventArgs arg)
         {
+            //send Email to Admin 
+             return Task.CompletedTask;
+        }
+
+        private async Task OnRegisterUser(ProcessMessageEventArgs arg)
+        {
+           
+            var message = arg.Message;
+            var body = Encoding.UTF8.GetString(message.Body);//read  as String
+            var user = JsonConvert.DeserializeObject<UserMessageDto>(body);//string to UserMessageDto
+
             try
             {
-                var message = args.Message;
-                var body = Encoding.UTF8.GetString(message.Body);
-                var user = JsonConvert.DeserializeObject<UserMessageDto>(body);
 
-                StringBuilder emailContent = new StringBuilder();
-                emailContent.Append("<img src=\"https://cdn.pixabay.com/photo/2017/11/08/22/48/gallery-2931925_1280.jpg\" width=\"800\" height=\"500\">");
-                emailContent.Append($"<h1> Hello {user.Name}</h1>");
-                emailContent.AppendLine("<br/> Welcome to ArtifyAuction");
-                emailContent.AppendLine("<p>Get Amazing Artifacts on Auction!</p>");
+                StringBuilder stringBuilder = new StringBuilder();
+                stringBuilder.Append("<img src=\"https://cdn.pixabay.com/photo/2017/11/08/22/48/gallery-2931925_1280.jpg\" width=\"800\" height=\"500\">");
+                stringBuilder.Append("<h1> Hello " + user.Name + "</h1>");
+                stringBuilder.AppendLine("<br/>Welcome to ArtifyAuction");
+                stringBuilder.Append("<br/>");
+                stringBuilder.Append('\n');
+                stringBuilder.Append("<p>Bid to Get Amazing Artifacts!</p>");
+                await _emailService.sendEmail(user, stringBuilder.ToString());
 
-                var emailDto = new UserMessageDto
+
+                //insert  to Database
+                var emaiLLogger = new EmailLogger()
                 {
-                    Email = user.Email,
                     Name = user.Name,
-                    Message = emailContent.ToString()
+                    Email = user.Email,
+                    Message = stringBuilder.ToString(),
+                    DateTime = DateTime.Now,
+
                 };
-                await _mailService.SendEmail(emailDto);
+                await _email.addDatatoDatabase(emaiLLogger);
 
-                // Log successful message processing
-                _logger.LogInformation("Welcome email sent to {Email}", user.Email);
-
-                // Mark the message as completed to remove it from the queue
-                await args.CompleteMessageAsync(message);
-            }
-            catch (Exception ex)
+                await arg.CompleteMessageAsync(arg.Message);//we are done delete the message from the queue 
+            }catch (Exception ex)
             {
-                _logger.LogError(ex, "Error processing register user message: {ErrorMessage}", ex.Message);
-
-                // Send an email notification to admin
-                var adminNotification = new UserMessageDto
-                {
-                    Name = "Admin",
-                    Email = "admin@example.com",
-                    Message = $"Error processing register user message: {ex.Message}"
-                };
-                await _mailService.SendEmail(adminNotification);
-
-                // Mark the message as completed to remove it from the queue
-                await args.CompleteMessageAsync(args.Message);
+                throw;
+                //send an Email to Admin
             }
         }
 
-        private Task ErrorHandler(ProcessErrorEventArgs args)
-        {
-            // Log error
-            _logger.LogError(args.Exception, "An error occurred while processing message: {ErrorMessage}", args.Exception.Message);
-
-            // Send email notification to admin
-            var adminNotification = new UserMessageDto
-            {
-                Name = "Admin",
-                Email = "admin@example.com",
-                Message = $"An error occurred while processing message: {args.Exception.Message}"
-            };
-            return _mailService.SendEmail(adminNotification);
-        }
+       
     }
 }
+
+        

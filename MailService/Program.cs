@@ -1,7 +1,7 @@
 using MailService.Data;
 using MailService.Extensions;
 using MailService.Messaging;
-using MailService.Service;
+using MailService.Services;
 using Microsoft.EntityFrameworkCore;
 
 
