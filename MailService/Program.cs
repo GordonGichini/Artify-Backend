@@ -1,7 +1,7 @@
 using MailService.Data;
-using MailService.Extensions;
-using MailService.Messaging;
-using MailService.Service;
+//using MailService.Extensions;
+//using MailService.Messaging;
+//using MailService.Service;
 using Microsoft.EntityFrameworkCore;
 
 
@@ -29,7 +29,7 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
-app.useAzure();
+//app.useAzure();
 
 app.UseAuthorization();
 app.MapControllers();
